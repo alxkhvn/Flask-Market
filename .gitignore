@@ -1,0 +1,11 @@
+*.log
+__pycache__/
+.idea/
+*.swp
+/env
+.pytest_cache
+.env
+*.env
+/venv
+envtext
+/market/log
