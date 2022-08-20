@@ -3,7 +3,8 @@ from flask import render_template, redirect, url_for, flash, get_flashed_message
 from market.models import Item, User
 from market.forms import RegisterForm, LoginForm
 from market import db
-# from flask_login import login_user
+from market import login_manager
+from flask_login import login_user, logout_user, login_required
 
 
 @app.route('/')
@@ -13,6 +14,7 @@ def home_page():
 
 
 @app.route('/market')
+@login_required  # this dec will redirect unauthorized user to login page(cause we specified it in the init file)
 def market_page():
     items = Item.query.all()
     return render_template('market.html', items=items)
@@ -27,6 +29,8 @@ def register_page():
                               password=form.password1.data)
         db.session.add(user_to_create)
         db.session.commit()
+        login_user(user_to_create)
+        flash(f"Account created successfully! You are now logged in as {user_to_create.username}", category="success")
         return redirect(url_for('market_page'))
     if form.errors != {}:  # If there aren't errors from the validations
         for err_msg in form.errors.values():
@@ -35,22 +39,30 @@ def register_page():
     return render_template('register.html', form=form)
 
 
+# @app.route('/login', methods=['GET', 'POST'])
+# @login_manager.user_loader
+# def login_page():
+#     form = LoginForm()
+#     return render_template('login.html', form=form)
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     form = LoginForm()
+    if form.validate_on_submit():
+        attempted_user = User.query.filter_by(username=form.username.data).first()
+        if attempted_user and attempted_user.check_password_correction(form.password.data):
+            login_user(attempted_user)
+            flash(f'Success! You are logged in as: {attempted_user.username}')
+            return redirect(url_for('market_page'))
+        else:
+            flash('Username and password are not match! Please try again', category='danger')
+
     return render_template('login.html', form=form)
 
 
-# @app.route('/login', methods=['GET', 'POST'])
-# def login_page():
-#     form = LoginForm()
-#     if form.validate_on_submit():
-#         attempted_user = User.query.get(form.username.data).first()
-#         if attempted_user and attempted_user.check_password_correction(form.password.data):
-#             login_user(attempted_user)
-#             flash(f'Success! You are logged in as: {attempted_user.username}')
-#             return redirect(url_for('market_page'))
-#         else:
-#             flash('Username and password are not match! Please try again', category='danger')
-#
-#     return render_template('login.html', form=form)
+@app.route('/logout')
+def logout_page():
+    logout_user()
+    flash('You have been logged out!', category='info')
+    return redirect(url_for('home_page'))
